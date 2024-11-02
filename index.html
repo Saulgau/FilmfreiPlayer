@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Film abspielen - FilmFrei</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-hover: #4f46e5;
+            --background-color: #0f172a;
+            --surface-color: #1e293b;
+            --text-color: #f8fafc;
+            --text-secondary: #94a3b8;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background-color: rgba(15, 23, 42, 0.95);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        
+        .film-title {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            margin: 0;
+            padding: 0.5rem 0;
+        }
+        
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: #000;
+        }
+        
+        #playerContainer {
+            width: 100%;
+            max-width: 1600px;
+            aspect-ratio: 16 / 9;
+            position: relative;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        video::-webkit-media-controls-timeline {
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+        video::-webkit-media-controls-panel {
+            background-image: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+        }
+
+        @media (max-width: 768px) {
+            main {
+                padding: 0;
+            }
+            
+            #playerContainer {
+                height: calc(100vh - 70px);
+            }
+            
+            .film-title {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 class="film-title" id="filmTitle">Film wird geladen...</h1>
+    </header>
+    <main>
+        <div id="playerContainer">
+            <video id="player" controls autoplay playsinline>
+                <source src="" type="video/mp4">
+                Ihr Browser unterstützt keine Videos.
+            </video>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Film-ID aus URL-Parametern lesen
+            const urlParams = new URLSearchParams(window.location.search);
+            const filmId = urlParams.get('id');
+            
+            if (!filmId) {
+                alert('Kein Film ausgewählt');
+                return;
+            }
+            
+            // Katalog laden und Film finden
+            try {
+                const response = await fetch('https://raw.githubusercontent.com/Saulgau/Kdkdkdkdkkdkdkdkxjdvejifvhxudbevdjjxb/refs/heads/main/catalog.ffcat');
+                const catalog = await response.json();
+                const film = catalog.films.find(f => f.id === filmId);
+                
+                if (!film) {
+                    throw new Error('Film nicht gefunden');
+                }
+                
+                // Titel setzen
+                document.title = `${film.title} - FilmFrei`;
+                document.getElementById('filmTitle').textContent = film.title;
+                
+                // Video einrichten
+                const video = document.getElementById('player');
+                video.querySelector('source').src = film.streamUrl;
+                video.load();
+                
+                // Gespeicherte Position laden
+                const savedTime = localStorage.getItem(`filmProgress_${film.id}`);
+                if (savedTime) {
+                    video.currentTime = parseFloat(savedTime);
+                }
+                
+                // Position regelmäßig speichern
+                setInterval(() => {
+                    if (!video.paused) {
+                        localStorage.setItem(`filmProgress_${film.id}`, video.currentTime);
+                    }
+                }, 5000);
+
+                // Event Listener für wichtige Events
+                video.addEventListener('play', () => {
+                    console.log('Video gestartet');
+                });
+
+                video.addEventListener('pause', () => {
+                    // Position beim Pausieren speichern
+                    localStorage.setItem(`filmProgress_${film.id}`, video.currentTime);
+                });
+
+                video.addEventListener('ended', () => {
+                    // Position beim Beenden zurücksetzen
+                    localStorage.removeItem(`filmProgress_${film.id}`);
+                });
+
+                video.addEventListener('error', (e) => {
+                    console.error('Video-Fehler:', e);
+                    alert('Fehler beim Laden des Videos. Bitte versuchen Sie es später erneut.');
+                });
+
+            } catch (error) {
+                console.error('Fehler beim Laden des Films:', error);
+                document.getElementById('filmTitle').textContent = 'Fehler beim Laden';
+                alert('Film konnte nicht geladen werden.');
+            }
+        });
+
+        // Vor dem Verlassen der Seite Position speichern
+        window.addEventListener('beforeunload', () => {
+            const video = document.getElementById('player');
+            if (video && !video.paused) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const filmId = urlParams.get('id');
+                localStorage.setItem(`filmProgress_${filmId}`, video.currentTime);
+            }
+        });
+    </script>
+</body>
+</html>
